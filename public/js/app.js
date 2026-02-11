@@ -1,10 +1,18 @@
 const API = "/api";
 
+// Sample images for slider
+const HERO_IMAGES = [
+  "https://images.unsplash.com/photo-1523050854058-8df90110c9f1?w=1200",
+  "https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=1200",
+  "https://images.unsplash.com/photo-1509062522246-3755977927d7?w=1200"
+];
+
 /* ===============================
    HOMEPAGE
 =============================== */
 function HomePage() {
   const [news, setNews] = React.useState([]);
+  const [currentSlide, setCurrentSlide] = React.useState(0);
 
   React.useEffect(() => {
     fetch(`${API}/news`)
@@ -13,33 +21,101 @@ function HomePage() {
       .catch(err => console.error(err));
   }, []);
 
+  // Auto-advance slider
+  React.useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % HERO_IMAGES.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Duplicate news for continuous scrolling
+  const duplicatedNews = [...news, ...news];
+
   return (
     <div className="page">
-      {/* Hero Section */}
+      {/* Hero Section with Slider */}
       <section className="hero">
-        <div className="hero-content">
-          <h1>Sainik Defense College</h1>
-          <p>Hingonia, Jaipur</p>
-          <p className="tagline">Discipline • Character • Excellence</p>
+        <div className="hero-slider">
+          {HERO_IMAGES.map((img, idx) => (
+            <div key={idx} className={`slide ${idx === currentSlide ? 'active' : ''}`}>
+              <img src={img} alt={`Slide ${idx + 1}`} />
+            </div>
+          ))}
+          <div className="hero-content">
+            <h1>Sainik Defense College</h1>
+            <p>Hingonia, Jaipur</p>
+            <p className="tagline">Discipline • Character • Excellence</p>
+          </div>
+          <div className="slider-nav">
+            {HERO_IMAGES.map((_, idx) => (
+              <div
+                key={idx}
+                className={`slider-dot ${idx === currentSlide ? 'active' : ''}`}
+                onClick={() => setCurrentSlide(idx)}
+              />
+            ))}
+          </div>
         </div>
       </section>
 
-      {/* News Section */}
-      <section className="section">
-        <div className="container">
-          <h2 className="section-title">📰 Latest News & Updates</h2>
-          <div className="news-grid">
-            {news.length === 0 ? (
-              <p>No news available</p>
-            ) : (
-              news.map(n => (
-                <div key={n.id} className="news-card">
-                  <h3>{n.title}</h3>
-                  <p>{n.content}</p>
-                  <small>{new Date(n.date).toLocaleDateString()}</small>
-                </div>
-              ))
-            )}
+      {/* News Bulletin Section - Government Style */}
+      <section className="news-bulletin-section">
+        <div className="news-bulletin-container">
+          <div className="news-bulletin-header">
+            <h2>
+              📰 Latest News & Updates
+              <span className="live-indicator">
+                <span className="live-dot"></span>
+                LIVE
+              </span>
+            </h2>
+          </div>
+          
+          {/* Scrolling Ticker */}
+          {news.length > 0 && (
+            <div className="news-ticker-wrapper">
+              <div className="news-ticker">
+                {duplicatedNews.map((n, idx) => (
+                  <div key={idx} className="ticker-item">
+                    <span className="ticker-icon">🔔</span>
+                    <span>{n.title}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* News Grid */}
+          <div className="news-grid-container">
+            <div className="news-grid">
+              {news.length === 0 ? (
+                <p style={{textAlign: 'center', gridColumn: '1/-1', padding: '2rem'}}>
+                  No news available at the moment
+                </p>
+              ) : (
+                news.map(n => (
+                  <div key={n.id} className="news-card">
+                    <div className="news-card-header">
+                      <h3>{n.title}</h3>
+                    </div>
+                    <div className="news-card-body">
+                      <p>{n.content}</p>
+                    </div>
+                    <div className="news-card-footer">
+                      <span className="news-date">
+                        📅 {new Date(n.date).toLocaleDateString('en-IN', {
+                          day: 'numeric',
+                          month: 'long',
+                          year: 'numeric'
+                        })}
+                      </span>
+                      <span className="news-badge">Latest</span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
         </div>
       </section>
@@ -52,24 +128,47 @@ function HomePage() {
             Sainik Defense College is committed to providing quality education with a focus on 
             discipline, character building, and academic excellence. We prepare young minds for 
             a bright future through a perfect blend of academics and co-curricular activities.
+            Our institution stands as a beacon of knowledge and values, nurturing students to become
+            responsible citizens and future leaders of our nation.
           </p>
         </div>
       </section>
+
+      {/* Footer */}
+      <Footer />
     </div>
   );
 }
 
 /* ===============================
-   ADMISSION FORM
+   ADMISSION FORM WITH PHOTO UPLOAD
 =============================== */
 function AdmissionPage() {
   const [form, setForm] = React.useState({
     studentName: '', fatherName: '', motherName: '', dob: '', gender: '',
     email: '', phone: '', address: '', previousSchool: '', 
-    classApplying: '', bloodGroup: ''
+    classApplying: '', bloodGroup: '', photo: null
   });
+  const [photoPreview, setPhotoPreview] = React.useState(null);
   const [loading, setLoading] = React.useState(false);
   const [message, setMessage] = React.useState('');
+
+  const handlePhotoChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      if (file.size > 2 * 1024 * 1024) { // 2MB limit
+        setMessage('❌ Photo size should be less than 2MB');
+        return;
+      }
+      
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPhotoPreview(reader.result);
+        setForm({...form, photo: reader.result});
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -90,8 +189,9 @@ function AdmissionPage() {
         setForm({
           studentName: '', fatherName: '', motherName: '', dob: '', gender: '',
           email: '', phone: '', address: '', previousSchool: '', 
-          classApplying: '', bloodGroup: ''
+          classApplying: '', bloodGroup: '', photo: null
         });
+        setPhotoPreview(null);
       } else {
         setMessage('❌ ' + (data.error || 'Failed to submit'));
       }
@@ -115,6 +215,30 @@ function AdmissionPage() {
           )}
 
           <form onSubmit={handleSubmit} className="admission-form">
+            {/* Photo Upload */}
+            <div className="form-group full-width">
+              <label>Student Photo *</label>
+              <div className="file-upload-wrapper">
+                <label className="file-upload-label" htmlFor="photo-upload">
+                  <span>📷</span>
+                  <span>{photoPreview ? 'Change Photo' : 'Upload Student Photo (Max 2MB)'}</span>
+                </label>
+                <input
+                  id="photo-upload"
+                  type="file"
+                  accept="image/*"
+                  className="file-upload-input"
+                  onChange={handlePhotoChange}
+                  required={!photoPreview}
+                />
+              </div>
+              {photoPreview && (
+                <div className="file-preview">
+                  <img src={photoPreview} alt="Student preview" />
+                </div>
+              )}
+            </div>
+
             <div className="form-grid">
               <div className="form-group">
                 <label>Student Name *</label>
@@ -257,11 +381,12 @@ function AdmissionPage() {
             </div>
 
             <button type="submit" disabled={loading} className="btn-primary">
-              {loading ? 'Submitting...' : 'Submit Application'}
+              {loading ? <><span className="loading-spinner"></span> Submitting...</> : 'Submit Application'}
             </button>
           </form>
         </div>
       </section>
+      <Footer />
     </div>
   );
 }
@@ -311,16 +436,19 @@ function ContactPage() {
           
           <div className="contact-info">
             <div className="info-card">
-              <h3>📍 Address</h3>
+              <div className="info-card-icon">📍</div>
+              <h3>Address</h3>
               <p>Sainik Defense College<br/>Hingonia, Jaipur<br/>Rajasthan, India</p>
             </div>
             <div className="info-card">
-              <h3>📧 Email</h3>
-              <p>info@sainikdefense.com</p>
+              <div className="info-card-icon">📧</div>
+              <h3>Email</h3>
+              <p>info@sainikdefense.com<br/>admissions@sainikdefense.com</p>
             </div>
             <div className="info-card">
-              <h3>📱 Phone</h3>
-              <p>+91 XXXXX XXXXX</p>
+              <div className="info-card-icon">📱</div>
+              <h3>Phone</h3>
+              <p>+91 XXXXX XXXXX<br/>+91 XXXXX XXXXX</p>
             </div>
           </div>
 
@@ -387,12 +515,61 @@ function ContactPage() {
             </div>
 
             <button type="submit" disabled={loading} className="btn-primary">
-              {loading ? 'Sending...' : 'Send Message'}
+              {loading ? <><span className="loading-spinner"></span> Sending...</> : 'Send Message'}
             </button>
           </form>
         </div>
       </section>
+      <Footer />
     </div>
+  );
+}
+
+/* ===============================
+   FOOTER COMPONENT
+=============================== */
+function Footer() {
+  return (
+    <footer className="footer">
+      <div className="footer-content">
+        <div className="footer-section">
+          <h3>About Sainik Defense College</h3>
+          <p>
+            A premier educational institution dedicated to nurturing young minds 
+            with discipline, character, and academic excellence since its inception.
+          </p>
+        </div>
+        
+        <div className="footer-section">
+          <h3>Quick Links</h3>
+          <a href="#home">Home</a>
+          <a href="#admission">Admissions</a>
+          <a href="#contact">Contact Us</a>
+          <a href="#admin">Admin Portal</a>
+        </div>
+        
+        <div className="footer-section">
+          <h3>Contact Info</h3>
+          <p>📍 Hingonia, Jaipur, Rajasthan</p>
+          <p>📧 info@sainikdefense.com</p>
+          <p>📱 +91 XXXXX XXXXX</p>
+        </div>
+        
+        <div className="footer-section">
+          <h3>Follow Us</h3>
+          <div className="social-links">
+            <a href="#" title="Facebook">📘</a>
+            <a href="#" title="Twitter">🐦</a>
+            <a href="#" title="Instagram">📷</a>
+            <a href="#" title="LinkedIn">💼</a>
+          </div>
+        </div>
+      </div>
+      
+      <div className="footer-bottom">
+        <p>&copy; 2026 Sainik Defense College. All rights reserved. | Designed with ❤️ for Excellence</p>
+      </div>
+    </footer>
   );
 }
 
@@ -464,7 +641,7 @@ function AdminLogin({ onSuccess }) {
           </div>
 
           <button type="submit" disabled={loading} className="btn-primary">
-            {loading ? 'Logging in...' : 'Login'}
+            {loading ? <><span className="loading-spinner"></span> Logging in...</> : 'Login'}
           </button>
         </form>
       </div>
@@ -473,9 +650,9 @@ function AdminLogin({ onSuccess }) {
 }
 
 /* ===============================
-   ADMIN DASHBOARD
+   ADMIN DASHBOARD WITH BETTER PDF
 =============================== */
-function AdminDashboard() {
+function AdminDashboard({ onBackToHome }) {
   const [tab, setTab] = React.useState('news');
   const [admissions, setAdmissions] = React.useState([]);
   const [contacts, setContacts] = React.useState([]);
@@ -546,10 +723,10 @@ function AdminDashboard() {
     }
   };
 
-  const downloadPDF = (type) => {
+  const downloadCSV = (type) => {
     const data = type === 'admissions' ? admissions : contacts;
     const headers = type === 'admissions' 
-      ? ['ID', 'Student Name', 'Father', 'Mother', 'DOB', 'Gender', 'Email', 'Phone', 'Class', 'Submitted']
+      ? ['ID', 'Student Name', 'Father', 'Mother', 'DOB', 'Gender', 'Email', 'Phone', 'Class', 'Blood Group', 'Previous School', 'Address', 'Submitted']
       : ['ID', 'Name', 'Email', 'Phone', 'Subject', 'Message', 'Submitted'];
     
     let csvContent = headers.join(',') + '\n';
@@ -557,29 +734,44 @@ function AdminDashboard() {
     data.forEach(row => {
       if (type === 'admissions') {
         csvContent += [
-          row.id, row.student_name, row.father_name, row.mother_name,
-          row.dob, row.gender, row.email, row.phone, row.class_applying,
+          row.id,
+          `"${row.student_name}"`,
+          `"${row.father_name}"`,
+          `"${row.mother_name}"`,
+          row.dob,
+          row.gender,
+          row.email,
+          row.phone,
+          row.class_applying,
+          row.blood_group || '',
+          `"${row.previous_school || ''}"`,
+          `"${row.address.replace(/"/g, '""')}"`,
           new Date(row.submitted_at).toLocaleString()
         ].join(',') + '\n';
       } else {
         csvContent += [
-          row.id, row.name, row.email, row.phone, row.subject,
+          row.id,
+          `"${row.name}"`,
+          row.email,
+          row.phone,
+          `"${row.subject}"`,
           `"${row.message.replace(/"/g, '""')}"`,
           new Date(row.submitted_at).toLocaleString()
         ].join(',') + '\n';
       }
     });
 
-    const blob = new Blob([csvContent], { type: 'text/csv' });
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
     a.download = `${type}_${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
+    URL.revokeObjectURL(url);
   };
 
   const logout = () => {
-    if (confirm('Logout?')) {
+    if (confirm('Logout from admin panel?')) {
       localStorage.clear();
       window.location.reload();
     }
@@ -588,21 +780,26 @@ function AdminDashboard() {
   return (
     <>
       <nav className="admin-nav">
-        <div className="nav-brand">Admin Dashboard</div>
+        <div className="nav-brand">🎓 Admin Dashboard</div>
         <div className="nav-links">
+          <span onClick={onBackToHome} className="home-link">🏠 Back to Home</span>
           <span onClick={() => setTab('news')} className={tab === 'news' ? 'active' : ''}>📰 News</span>
-          <span onClick={() => setTab('admissions')} className={tab === 'admissions' ? 'active' : ''}>📝 Admissions</span>
-          <span onClick={() => setTab('contacts')} className={tab === 'contacts' ? 'active' : ''}>📧 Contacts</span>
+          <span onClick={() => setTab('admissions')} className={tab === 'admissions' ? 'active' : ''}>📝 Admissions ({admissions.length})</span>
+          <span onClick={() => setTab('contacts')} className={tab === 'contacts' ? 'active' : ''}>📧 Contacts ({contacts.length})</span>
           <span onClick={logout} className="logout">🚪 Logout</span>
         </div>
       </nav>
 
       <div className="admin-content">
-        {message && <div className="alert success">{message}</div>}
+        {message && (
+          <div className={message.includes('✅') ? 'alert success' : 'alert error'}>
+            {message}
+          </div>
+        )}
 
         {tab === 'news' && (
           <div className="admin-section">
-            <h2>📰 Manage News</h2>
+            <h2>📰 Manage News & Updates</h2>
             
             <form onSubmit={saveNews} className="admin-form">
               <input
@@ -620,11 +817,11 @@ function AdminDashboard() {
               />
               <div className="form-actions">
                 <button type="submit" className="btn-primary">
-                  {newsForm.id ? 'Update' : 'Add'} News
+                  {newsForm.id ? '✏️ Update News' : '➕ Add News'}
                 </button>
                 {newsForm.id && (
                   <button type="button" onClick={() => setNewsForm({ id: null, title: '', content: '' })} className="btn-secondary">
-                    Cancel
+                    ❌ Cancel
                   </button>
                 )}
               </div>
@@ -635,10 +832,14 @@ function AdminDashboard() {
                 <div key={n.id} className="data-card">
                   <h3>{n.title}</h3>
                   <p>{n.content}</p>
-                  <small>{new Date(n.date).toLocaleDateString()}</small>
+                  <small>📅 {new Date(n.date).toLocaleDateString('en-IN', {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric'
+                  })}</small>
                   <div className="card-actions">
-                    <button onClick={() => setNewsForm(n)} className="btn-sm">Edit</button>
-                    <button onClick={() => deleteNews(n.id)} className="btn-sm btn-danger">Delete</button>
+                    <button onClick={() => setNewsForm(n)} className="btn-sm btn-primary">✏️ Edit</button>
+                    <button onClick={() => deleteNews(n.id)} className="btn-sm btn-danger">🗑️ Delete</button>
                   </div>
                 </div>
               ))}
@@ -650,7 +851,7 @@ function AdminDashboard() {
           <div className="admin-section">
             <div className="section-header">
               <h2>📝 Admission Applications ({admissions.length})</h2>
-              <button onClick={() => downloadPDF('admissions')} className="btn-primary">
+              <button onClick={() => downloadCSV('admissions')} className="btn-primary">
                 📥 Download CSV
               </button>
             </div>
@@ -660,8 +861,12 @@ function AdminDashboard() {
                 <thead>
                   <tr>
                     <th>ID</th>
+                    <th>Photo</th>
                     <th>Student</th>
                     <th>Father</th>
+                    <th>Mother</th>
+                    <th>DOB</th>
+                    <th>Gender</th>
                     <th>Email</th>
                     <th>Phone</th>
                     <th>Class</th>
@@ -672,8 +877,18 @@ function AdminDashboard() {
                   {admissions.map(a => (
                     <tr key={a.id}>
                       <td>{a.id}</td>
+                      <td>
+                        {a.photo ? (
+                          <img src={a.photo} alt="Student" style={{width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover'}} />
+                        ) : (
+                          '👤'
+                        )}
+                      </td>
                       <td>{a.student_name}</td>
                       <td>{a.father_name}</td>
+                      <td>{a.mother_name}</td>
+                      <td>{new Date(a.dob).toLocaleDateString()}</td>
+                      <td>{a.gender}</td>
                       <td>{a.email}</td>
                       <td>{a.phone}</td>
                       <td>{a.class_applying}</td>
@@ -690,7 +905,7 @@ function AdminDashboard() {
           <div className="admin-section">
             <div className="section-header">
               <h2>📧 Contact Enquiries ({contacts.length})</h2>
-              <button onClick={() => downloadPDF('contacts')} className="btn-primary">
+              <button onClick={() => downloadCSV('contacts')} className="btn-primary">
                 📥 Download CSV
               </button>
             </div>
@@ -736,28 +951,54 @@ function AdminDashboard() {
 function App() {
   const [page, setPage] = React.useState('home');
   const [isAdmin, setIsAdmin] = React.useState(!!localStorage.getItem('token'));
+  const [showScrollTop, setShowScrollTop] = React.useState(false);
+
+  // Scroll to top button
+  React.useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 300);
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const goToHome = () => {
+    setPage('home');
+    scrollToTop();
+  };
 
   if (page === 'admin') {
     return isAdmin 
-      ? <AdminDashboard /> 
+      ? <AdminDashboard onBackToHome={goToHome} /> 
       : <AdminLogin onSuccess={() => setIsAdmin(true)} />;
   }
 
   return (
     <>
       <nav className="navbar">
-        <div className="nav-brand">Sainik Defense College</div>
+        <div className="nav-brand">🎓 Sainik Defense College</div>
         <div className="nav-links">
-          <span onClick={() => setPage('home')} className={page === 'home' ? 'active' : ''}>Home</span>
-          <span onClick={() => setPage('admission')} className={page === 'admission' ? 'active' : ''}>Admission</span>
-          <span onClick={() => setPage('contact')} className={page === 'contact' ? 'active' : ''}>Contact</span>
-          <span onClick={() => setPage('admin')} className="admin-link">Admin</span>
+          <span onClick={() => { setPage('home'); scrollToTop(); }} className={page === 'home' ? 'active' : ''}>🏠 Home</span>
+          <span onClick={() => { setPage('admission'); scrollToTop(); }} className={page === 'admission' ? 'active' : ''}>📝 Admission</span>
+          <span onClick={() => { setPage('contact'); scrollToTop(); }} className={page === 'contact' ? 'active' : ''}>📞 Contact</span>
+          <span onClick={() => { setPage('admin'); scrollToTop(); }} className="admin-link">🔐 Admin</span>
         </div>
       </nav>
 
       {page === 'home' && <HomePage />}
       {page === 'admission' && <AdmissionPage />}
       {page === 'contact' && <ContactPage />}
+
+      {/* Scroll to top button */}
+      {showScrollTop && (
+        <button className="scroll-top show" onClick={scrollToTop}>
+          ↑
+        </button>
+      )}
     </>
   );
 }
