@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: sainik-defense-college
+    env: node
+    region: singapore
+    plan: free
+    buildCommand: |
+      npm install
+      pip install --break-system-packages reportlab
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
