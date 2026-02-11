@@ -3,211 +3,147 @@ const express = require('express');
 const mysql = require('mysql2/promise');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const path = require('path');
 
 const app = express();
-
-// Middleware
 app.use(cors());
 app.use(express.json());
-app.use(express.static('public'));
 
-// MySQL Connection Pool
+// ================= DATABASE CONNECTION =================
+
 const pool = mysql.createPool({
   host: process.env.DB_HOST,
-  port: process.env.DB_PORT || 3306,
+  port: process.env.DB_PORT,
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
   database: process.env.DB_NAME,
+  ssl: {
+    rejectUnauthorized: false
+  },
   waitForConnections: true,
-  connectionLimit: 10,
-  queueLimit: 0,
-  ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : false
+  connectionLimit: 10
 });
 
-// Test connection
-pool.getConnection()
-  .then(conn => {
-    console.log('✅ MySQL Connected');
-    conn.release();
-  })
-  .catch(err => console.error('❌ MySQL Error:', err.message));
-
-/* ===============================
-   ADMIN AUTHENTICATION
-=============================== */
-app.post('/api/auth/login', async (req, res) => {
+// Test DB + Auto Create Tables
+async function initDatabase() {
   try {
-    const { email, password } = req.body;
-    const [rows] = await pool.query('SELECT * FROM admins WHERE email = ?', [email]);
-    
-    if (!rows.length) return res.status(401).json({ error: 'Invalid credentials' });
-    
-    const admin = rows[0];
-    const isValid = await bcrypt.compare(password, admin.password);
-    
-    if (!isValid) return res.status(401).json({ error: 'Invalid credentials' });
-    
-    const token = jwt.sign(
-      { id: admin.id, email: admin.email },
-      process.env.JWT_SECRET || 'secret-key',
-      { expiresIn: '24h' }
-    );
-    
-    res.json({ token, admin: { id: admin.id, email: admin.email } });
-  } catch (error) {
-    console.error('Login error:', error);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
+    const connection = await pool.getConnection();
+    console.log("✅ MySQL Connected");
 
-// Admin middleware
-function adminAuth(req, res, next) {
-  try {
-    const token = req.headers.authorization?.split(' ')[1];
-    if (!token) return res.status(401).json({ error: 'No token' });
-    
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret-key');
-    req.admin = decoded;
-    next();
-  } catch (error) {
-    res.status(401).json({ error: 'Invalid token' });
+    // Create tables automatically
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS admins (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        email VARCHAR(255) NOT NULL UNIQUE,
+        password VARCHAR(255) NOT NULL,
+        name VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS news (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(500) NOT NULL,
+        content TEXT NOT NULL,
+        date DATETIME DEFAULT CURRENT_TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS admissions (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        student_name VARCHAR(255),
+        father_name VARCHAR(255),
+        mother_name VARCHAR(255),
+        dob DATE,
+        gender VARCHAR(20),
+        email VARCHAR(255),
+        phone VARCHAR(20),
+        address TEXT,
+        previous_school VARCHAR(255),
+        class_applying VARCHAR(50),
+        blood_group VARCHAR(10),
+        submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS contacts (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(255),
+        email VARCHAR(255),
+        phone VARCHAR(20),
+        subject VARCHAR(500),
+        message TEXT,
+        submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Insert default admin if not exists
+    const hashedPassword = await bcrypt.hash("admin123", 10);
+    await connection.query(`
+      INSERT IGNORE INTO admins (email, password, name)
+      VALUES ('admin@sainik.com', ?, 'Administrator')
+    `, [hashedPassword]);
+
+    connection.release();
+    console.log("✅ Tables Checked/Created");
+
+  } catch (err) {
+    console.error("❌ MySQL Initialization Error:", err.message);
   }
 }
 
-/* ===============================
-   PUBLIC ENDPOINTS
-=============================== */
+initDatabase();
 
-// Get all news (public)
-app.get('/api/news', async (req, res) => {
+// ================= ROUTES =================
+
+app.get('/', (req, res) => {
+  res.send("Sainik Defense College Backend Running");
+});
+
+app.get('/news', async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT * FROM news ORDER BY date DESC LIMIT 10');
+    const [rows] = await pool.query("SELECT * FROM news ORDER BY date DESC LIMIT 10");
     res.json(rows);
-  } catch (error) {
-    console.error('Get news error:', error);
-    res.status(500).json({ error: 'Failed to fetch news' });
+  } catch (err) {
+    console.error("Get news error:", err.message);
+    res.status(500).json({ error: "Failed to fetch news" });
   }
 });
 
-// Submit admission form (public)
-app.post('/api/admission', async (req, res) => {
+app.post('/login', async (req, res) => {
   try {
-    const {
-      studentName, fatherName, motherName, dob, gender, email, phone,
-      address, previousSchool, classApplying, bloodGroup
-    } = req.body;
-    
-    await pool.query(
-      `INSERT INTO admissions 
-      (student_name, father_name, mother_name, dob, gender, email, phone, 
-       address, previous_school, class_applying, blood_group, submitted_at) 
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
-      [studentName, fatherName, motherName, dob, gender, email, phone, 
-       address, previousSchool, classApplying, bloodGroup]
+    const { email, password } = req.body;
+
+    const [rows] = await pool.query(
+      "SELECT * FROM admins WHERE email = ?",
+      [email]
     );
-    
-    res.json({ success: true, message: 'Admission form submitted successfully!' });
-  } catch (error) {
-    console.error('Admission error:', error);
-    res.status(500).json({ error: 'Failed to submit admission form' });
+
+    if (rows.length === 0) {
+      return res.status(401).json({ message: "Invalid email" });
+    }
+
+    const admin = rows[0];
+    const match = await bcrypt.compare(password, admin.password);
+
+    if (!match) {
+      return res.status(401).json({ message: "Invalid password" });
+    }
+
+    res.json({ message: "Login successful" });
+
+  } catch (err) {
+    console.error("Login error:", err.message);
+    res.status(500).json({ error: "Login failed" });
   }
 });
 
-// Submit contact form (public)
-app.post('/api/contact', async (req, res) => {
-  try {
-    const { name, email, phone, subject, message } = req.body;
-    
-    await pool.query(
-      'INSERT INTO contacts (name, email, phone, subject, message, submitted_at) VALUES (?, ?, ?, ?, ?, NOW())',
-      [name, email, phone, subject, message]
-    );
-    
-    res.json({ success: true, message: 'Message sent successfully!' });
-  } catch (error) {
-    console.error('Contact error:', error);
-    res.status(500).json({ error: 'Failed to send message' });
-  }
-});
+// ================= SERVER =================
 
-/* ===============================
-   ADMIN ENDPOINTS
-=============================== */
-
-// Get all admissions (admin)
-app.get('/api/admin/admissions', adminAuth, async (req, res) => {
-  try {
-    const [rows] = await pool.query('SELECT * FROM admissions ORDER BY submitted_at DESC');
-    res.json(rows);
-  } catch (error) {
-    console.error('Get admissions error:', error);
-    res.status(500).json({ error: 'Failed to fetch admissions' });
-  }
-});
-
-// Get all contacts (admin)
-app.get('/api/admin/contacts', adminAuth, async (req, res) => {
-  try {
-    const [rows] = await pool.query('SELECT * FROM contacts ORDER BY submitted_at DESC');
-    res.json(rows);
-  } catch (error) {
-    console.error('Get contacts error:', error);
-    res.status(500).json({ error: 'Failed to fetch contacts' });
-  }
-});
-
-// News CRUD (admin)
-app.post('/api/admin/news', adminAuth, async (req, res) => {
-  try {
-    const { title, content } = req.body;
-    await pool.query(
-      'INSERT INTO news (title, content, date) VALUES (?, ?, NOW())',
-      [title, content]
-    );
-    res.json({ success: true, message: 'News created' });
-  } catch (error) {
-    console.error('Create news error:', error);
-    res.status(500).json({ error: 'Failed to create news' });
-  }
-});
-
-app.put('/api/admin/news/:id', adminAuth, async (req, res) => {
-  try {
-    const { title, content } = req.body;
-    await pool.query(
-      'UPDATE news SET title = ?, content = ?, date = NOW() WHERE id = ?',
-      [title, content, req.params.id]
-    );
-    res.json({ success: true, message: 'News updated' });
-  } catch (error) {
-    console.error('Update news error:', error);
-    res.status(500).json({ error: 'Failed to update news' });
-  }
-});
-
-app.delete('/api/admin/news/:id', adminAuth, async (req, res) => {
-  try {
-    await pool.query('DELETE FROM news WHERE id = ?', [req.params.id]);
-    res.json({ success: true, message: 'News deleted' });
-  } catch (error) {
-    console.error('Delete news error:', error);
-    res.status(500).json({ error: 'Failed to delete news' });
-  }
-});
-
-/* ===============================
-   SERVE FRONTEND
-=============================== */
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
-/* ===============================
-   START SERVER
-=============================== */
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
