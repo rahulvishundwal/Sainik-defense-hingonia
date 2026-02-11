@@ -274,6 +274,27 @@ app.delete('/api/admin/news/:id', adminAuth, async (req, res) => {
 
   res.json({ success: true });
 });
+/* ===============================
+   TEMP ADMIN RESET ROUTE (DELETE AFTER USE)
+=============================== */
+
+app.get('/reset-admin-now', async (req, res) => {
+  try {
+    const hashed = await bcrypt.hash("Admin@123", 10);
+
+    await pool.query("DELETE FROM admins");
+
+    await pool.query(
+      "INSERT INTO admins (email, password, name) VALUES (?, ?, ?)",
+      ["admin@sainik.com", hashed, "Administrator"]
+    );
+
+    res.send("✅ Admin Reset Successfully");
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Error resetting admin");
+  }
+});
 
 /* ===============================
    SERVE FRONTEND
