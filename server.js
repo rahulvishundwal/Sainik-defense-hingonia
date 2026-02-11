@@ -30,16 +30,96 @@ const pool = mysql.createPool({
     : false
 });
 
-// Test DB
-(async () => {
+/* ===============================
+   INITIAL SETUP (AUTO CREATE TABLES + ADMIN)
+=============================== */
+async function initializeDatabase() {
   try {
     const conn = await pool.getConnection();
     console.log("✅ MySQL Connected");
+
+    // Create admins table
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS admins (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        email VARCHAR(255) NOT NULL UNIQUE,
+        password VARCHAR(255) NOT NULL,
+        name VARCHAR(255),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create news table
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS news (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        title VARCHAR(500) NOT NULL,
+        content TEXT NOT NULL,
+        date DATETIME DEFAULT CURRENT_TIMESTAMP,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create admissions table
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS admissions (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        student_name VARCHAR(255),
+        father_name VARCHAR(255),
+        mother_name VARCHAR(255),
+        dob DATE,
+        gender VARCHAR(50),
+        email VARCHAR(255),
+        phone VARCHAR(50),
+        address TEXT,
+        previous_school VARCHAR(255),
+        class_applying VARCHAR(100),
+        blood_group VARCHAR(20),
+        submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create contacts table
+    await conn.query(`
+      CREATE TABLE IF NOT EXISTS contacts (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(255),
+        email VARCHAR(255),
+        phone VARCHAR(50),
+        subject VARCHAR(500),
+        message TEXT,
+        submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    // Create default admin if not exists
+    const [admins] = await conn.query(
+      "SELECT * FROM admins WHERE email = ?",
+      ["admin@sainik.com"]
+    );
+
+    if (!admins.length) {
+      const hashedPassword = await bcrypt.hash("Admin@123", 10);
+
+      await conn.query(
+        "INSERT INTO admins (email, password, name) VALUES (?, ?, ?)",
+        ["admin@sainik.com", hashedPassword, "Administrator"]
+      );
+
+      console.log("✅ Default Admin Created");
+      console.log("📧 Email: admin@sainik.com");
+      console.log("🔑 Password: Admin@123");
+    }
+
     conn.release();
+    console.log("✅ Tables Checked/Created");
+
   } catch (err) {
-    console.error("❌ MySQL Error:", err.message);
+    console.error("❌ DB Init Error:", err.message);
   }
-})();
+}
+
+initializeDatabase();
 
 /* ===============================
    AUTH ROUTES
@@ -48,6 +128,7 @@ const pool = mysql.createPool({
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
+
     const [rows] = await pool.query(
       'SELECT * FROM admins WHERE email = ?',
       [email]
@@ -74,7 +155,6 @@ app.post('/api/auth/login', async (req, res) => {
     });
 
   } catch (err) {
-    console.error(err);
     res.status(500).json({ error: "Server error" });
   }
 });
@@ -138,8 +218,7 @@ app.post('/api/admission', async (req, res) => {
 
     res.json({ success: true });
 
-  } catch (err) {
-    console.error(err);
+  } catch {
     res.status(500).json({ error: 'Failed to submit admission' });
   }
 });
@@ -197,7 +276,7 @@ app.delete('/api/admin/news/:id', adminAuth, async (req, res) => {
 });
 
 /* ===============================
-   SERVE FRONTEND (IMPORTANT)
+   SERVE FRONTEND
 =============================== */
 
 app.use(express.static(path.join(__dirname, 'public')));
@@ -215,4 +294,5 @@ const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
 });
+
 
