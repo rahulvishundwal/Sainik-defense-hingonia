@@ -12,7 +12,8 @@ const app = express();
    MIDDLEWARE
 =============================== */
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '10mb' })); // Increased limit for photo uploads
+app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 /* ===============================
    DATABASE CONNECTION
@@ -60,7 +61,7 @@ async function initializeDatabase() {
       )
     `);
 
-    // Create admissions table
+    // Create admissions table with photo field
     await conn.query(`
       CREATE TABLE IF NOT EXISTS admissions (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -75,6 +76,7 @@ async function initializeDatabase() {
         previous_school VARCHAR(255),
         class_applying VARCHAR(100),
         blood_group VARCHAR(20),
+        photo LONGTEXT,
         submitted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -200,8 +202,8 @@ app.post('/api/admission', async (req, res) => {
       INSERT INTO admissions 
       (student_name, father_name, mother_name, dob, gender,
        email, phone, address, previous_school,
-       class_applying, blood_group, submitted_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+       class_applying, blood_group, photo, submitted_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
     `, [
       data.studentName,
       data.fatherName,
@@ -213,12 +215,14 @@ app.post('/api/admission', async (req, res) => {
       data.address,
       data.previousSchool,
       data.classApplying,
-      data.bloodGroup
+      data.bloodGroup,
+      data.photo || null
     ]);
 
     res.json({ success: true });
 
-  } catch {
+  } catch (err) {
+    console.error('Admission error:', err);
     res.status(500).json({ error: 'Failed to submit admission' });
   }
 });
@@ -245,37 +249,75 @@ app.post('/api/contact', async (req, res) => {
 =============================== */
 
 app.post('/api/admin/news', adminAuth, async (req, res) => {
-  const { title, content } = req.body;
+  try {
+    const { title, content } = req.body;
 
-  await pool.query(
-    'INSERT INTO news (title, content, date) VALUES (?, ?, NOW())',
-    [title, content]
-  );
+    await pool.query(
+      'INSERT INTO news (title, content, date) VALUES (?, ?, NOW())',
+      [title, content]
+    );
 
-  res.json({ success: true });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to add news' });
+  }
 });
 
 app.put('/api/admin/news/:id', adminAuth, async (req, res) => {
-  const { title, content } = req.body;
+  try {
+    const { title, content } = req.body;
 
-  await pool.query(
-    'UPDATE news SET title=?, content=?, date=NOW() WHERE id=?',
-    [title, content, req.params.id]
-  );
+    await pool.query(
+      'UPDATE news SET title=?, content=?, date=NOW() WHERE id=?',
+      [title, content, req.params.id]
+    );
 
-  res.json({ success: true });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to update news' });
+  }
 });
 
 app.delete('/api/admin/news/:id', adminAuth, async (req, res) => {
-  await pool.query(
-    'DELETE FROM news WHERE id=?',
-    [req.params.id]
-  );
+  try {
+    await pool.query(
+      'DELETE FROM news WHERE id=?',
+      [req.params.id]
+    );
 
-  res.json({ success: true });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to delete news' });
+  }
 });
+
 /* ===============================
-   /*
+   ADMIN DATA ROUTES
+=============================== */
+
+app.get('/api/admin/admissions', adminAuth, async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      'SELECT * FROM admissions ORDER BY submitted_at DESC'
+    );
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch admissions' });
+  }
+});
+
+app.get('/api/admin/contacts', adminAuth, async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      'SELECT * FROM contacts ORDER BY submitted_at DESC'
+    );
+    res.json(rows);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch contacts' });
+  }
+});
+
+/* ===============================
    SERVE FRONTEND
 =============================== */
 
@@ -293,6 +335,6 @@ const PORT = process.env.PORT || 10000;
 
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`📧 Default Admin: admin@sainik.com`);
+  console.log(`🔑 Password: Admin@123`);
 });
-
-
