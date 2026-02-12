@@ -686,7 +686,7 @@ function AdminLogin({ onSuccess }) {
               type="password"
               required
               value={password}
-              onChange={e => setPassword(e.target.value})}
+              onChange={e => setPassword(e.target.value)}
               placeholder="Enter password"
             />
           </div>
@@ -1146,7 +1146,7 @@ function App() {
             <div className="footer-section">
               <h4>Contact</h4>
               <p>Email: info@sainikdefense.com</p>
-              <p>Phone: +91 141 XXXXXXX</p>
+              <p>Phone: +91 9928889381</p>
             </div>
           </div>
           <div className="footer-bottom">
