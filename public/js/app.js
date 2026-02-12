@@ -313,7 +313,7 @@ function AdmissionPage() {
         setForm({
           studentName: '', fatherName: '', motherName: '', dob: '', gender: '',
           email: '', phone: '', address: '', previousSchool: '', 
-          classApplying: '', bloodGroup: ''
+          courseApplying: '', bloodGroup: ''
         });
       } else {
         setMessage('❌ ' + (data.error || 'Failed to submit'));
@@ -546,7 +546,7 @@ function ContactPage() {
               <div className="contact-card">
                 <div className="contact-icon">📱</div>
                 <h4>Phone</h4>
-                <p>+91 141 XXXXXXX<br/>+91 XXXXX XXXXX</p>
+                <p>+91 141 9928889381<br/>+91 9928889381</p>
               </div>
             </div>
 
