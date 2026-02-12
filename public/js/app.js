@@ -1151,6 +1151,7 @@ function App() {
           </div>
           <div className="footer-bottom">
             <p>&copy; 2026 Sainik Defense College. All Rights Reserved.</p>
+         <p>&copy; <b>Designed and developed by Rahul Web Solution.</b></p>
           </div>
         </div>
       </footer>
