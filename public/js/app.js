@@ -190,7 +190,7 @@ function DirectorPage() {
               <div className="director-photo">
                 <img src="https://images.unsplash.com/photo-1560250097-0b93528c311a?w=400&h=500&fit=crop" alt="Director" />
                 <div className="director-name-plate">
-                  <h3>Col. Rajesh Kumar (Retd.)</h3>
+                  <h3>Dr. Jyoti Bhardwaj</h3>
                   <p>Director</p>
                 </div>
               </div>
@@ -226,7 +226,7 @@ function DirectorPage() {
                   </p>
                   
                   <div className="signature">
-                    <p><strong>Col. Rajesh Kumar (Retd.)</strong></p>
+                    <p><strong>Dr. Jyoti Bhardwaj</strong></p>
                     <p>Director</p>
                     <p>Sainik Defense College</p>
                   </div>
