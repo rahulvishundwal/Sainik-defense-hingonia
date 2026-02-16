@@ -1,7 +1,7 @@
 {
   "name": "sainik-defense-college",
-  "version": "3.0.0",
-  "description": "Fresh Sainik Defense College Website - Admissions, Contact, Admin Panel",
+  "version": "4.0.0",
+  "description": "Elite Sainik Defense College Website - Production Ready",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
@@ -11,7 +11,8 @@
     "school",
     "education",
     "admission",
-    "website"
+    "website",
+    "pdf"
   ],
   "author": "Rahul Web Solutions",
   "license": "ISC",
@@ -21,7 +22,8 @@
     "cors": "^2.8.5",
     "bcryptjs": "^2.4.3",
     "jsonwebtoken": "^9.0.2",
-    "dotenv": "^16.3.1"
+    "dotenv": "^16.3.1",
+    "pdfkit": "^0.13.0"
   },
   "devDependencies": {
     "nodemon": "^3.0.2"
